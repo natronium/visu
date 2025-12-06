@@ -88,7 +88,7 @@ fn create_audioinput_stream() -> (Receiver<f32>, Stream) {
             &config,
             move |data: &[f32], _info| {
                 for sample in data {
-                    tx.send(*sample).ok();
+                    tx.try_send(*sample).ok();
                 }
             },
             |_e| {},
