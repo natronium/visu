@@ -1,20 +1,23 @@
-use bevy::prelude::*;
+use bevy::{
+    color::palettes::css::{GREEN, GREY},
+    prelude::*,
+    window::PrimaryWindow,
+};
 use cpal::{
     SampleFormat, Stream, StreamConfig,
     traits::{DeviceTrait as _, HostTrait, StreamTrait as _},
 };
 use crossbeam_channel::{Receiver, bounded};
-use std::{
-    collections::VecDeque,
-    io::{Write, stdout},
-};
+use std::
+    collections::VecDeque
+;
 
 const SAMPLE_RATE: u32 = 48000;
 pub const BUFFER_CAPACITY: usize = SAMPLE_RATE as usize / 10; // hold on to 0.1s of audio
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    non_bevy();
-    // bevy();
+    // non_bevy();
+    bevy();
 
     Ok(())
 }
@@ -22,6 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 struct AudioInputPlugin;
 
 #[derive(Resource)]
+#[expect(unused)] // Need to hold on to the Stream so that it keeps recording audio
 struct AudioBuffer(VecDeque<f32>, Stream);
 
 impl Plugin for AudioInputPlugin {
@@ -40,34 +44,47 @@ impl Plugin for AudioInputPlugin {
     }
 }
 
-fn draw_bar_system(buf_res: Res<AudioBuffer>) {
-    audiobar(&buf_res.0);
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d);
+}
+
+fn wave_gizmo(
+    buf_res: Res<AudioBuffer>,
+    mut gizmos: Gizmos,
+    window: Single<&mut Window, With<PrimaryWindow>>,
+) {
+    let buf = &buf_res.0;
+    let width = window.width();
+    let height = window.height();
+    let window_domain = interval(-width / 2.0, width / 2.0).unwrap();
+
+    let curve = SampleAutoCurve::new(window_domain, buf.clone())
+        .unwrap()
+        .graph()
+        .map(|(x, y)| vec2(x, y * height / 2.0));
+
+    let resolution = BUFFER_CAPACITY;
+    let times = window_domain.spaced_points(resolution).unwrap();
+    gizmos.curve_2d(curve, times, GREEN);
+}
+
+fn grid(mut gizmos: Gizmos) {
+    gizmos.grid_2d(
+        Isometry2d::IDENTITY,
+        uvec2(100, 100),
+        vec2(100., 100.),
+        GREY,
+    );
 }
 
 fn bevy() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(AudioInputPlugin)
-        .add_systems(Update, draw_bar_system)
+        .add_systems(Startup, setup)
+        .add_systems(Update, grid)
+        .add_systems(Update, wave_gizmo)
         .run();
-}
-
-fn non_bevy() {
-    let (rx, stream) = create_audioinput_stream();
-    let mut buf = VecDeque::<f32>::with_capacity(BUFFER_CAPACITY * 2);
-    loop {
-        refill_buffer_from_stream(&rx, &mut buf);
-        audiobar(&buf);
-    }
-}
-
-fn audiobar(buf: &VecDeque<f32>) {
-    let rms: f32 = buf.iter().map(|s| s * s).sum::<f32>().sqrt();
-    let bar = "#".repeat((rms * 10.0) as usize);
-    let clear = " ".repeat(140);
-    print!("\r{clear}");
-    print!("\r[{rms:06.3}]{bar}");
-    stdout().flush().unwrap();
 }
 
 fn create_audioinput_stream() -> (Receiver<f32>, Stream) {
