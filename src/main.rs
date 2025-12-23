@@ -8,8 +8,8 @@ use cpal::{
     traits::{DeviceTrait as _, HostTrait, StreamTrait as _},
 };
 use crossbeam_channel::{Receiver, bounded};
-use std::
-    collections::VecDeque
+use std::{
+    collections::VecDeque, iter::repeat_n}
 ;
 
 const SAMPLE_RATE: u32 = 48000;
@@ -35,9 +35,12 @@ impl Plugin for AudioInputPlugin {
         let update_buffer = move |mut buf_res: ResMut<AudioBuffer>| {
             refill_buffer_from_stream(&rx, &mut buf_res.0);
         };
+        
+        let mut buf = VecDeque::with_capacity(BUFFER_CAPACITY * 2);
+        buf.extend(repeat_n(0., BUFFER_CAPACITY * 2));
 
         app.insert_resource(AudioBuffer(
-            VecDeque::with_capacity(BUFFER_CAPACITY * 2),
+            buf,
             stream,
         ))
         .add_systems(Update, update_buffer);
