@@ -8,18 +8,19 @@ use cpal::{
     traits::{DeviceTrait as _, HostTrait, StreamTrait as _},
 };
 use crossbeam_channel::{Receiver, bounded};
-use std::{
-    collections::VecDeque, iter::repeat_n}
-;
+use std::{collections::VecDeque, iter::repeat_n};
 
 const SAMPLE_RATE: u32 = 48000;
 pub const BUFFER_CAPACITY: usize = SAMPLE_RATE as usize / 10; // hold on to 0.1s of audio
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // non_bevy();
-    bevy();
-
-    Ok(())
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(AudioInputPlugin)
+        .add_systems(Startup, setup)
+        .add_systems(Update, grid)
+        .add_systems(Update, wave_gizmo)
+        .run();
 }
 
 struct AudioInputPlugin;
@@ -35,15 +36,12 @@ impl Plugin for AudioInputPlugin {
         let update_buffer = move |mut buf_res: ResMut<AudioBuffer>| {
             refill_buffer_from_stream(&rx, &mut buf_res.0);
         };
-        
+
         let mut buf = VecDeque::with_capacity(BUFFER_CAPACITY * 2);
         buf.extend(repeat_n(0., BUFFER_CAPACITY * 2));
 
-        app.insert_resource(AudioBuffer(
-            buf,
-            stream,
-        ))
-        .add_systems(Update, update_buffer);
+        app.insert_resource(AudioBuffer(buf, stream))
+            .add_systems(Update, update_buffer);
     }
 }
 
@@ -78,16 +76,6 @@ fn grid(mut gizmos: Gizmos) {
         vec2(100., 100.),
         GREY,
     );
-}
-
-fn bevy() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(AudioInputPlugin)
-        .add_systems(Startup, setup)
-        .add_systems(Update, grid)
-        .add_systems(Update, wave_gizmo)
-        .run();
 }
 
 fn create_audioinput_stream() -> (Receiver<f32>, Stream) {
