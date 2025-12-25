@@ -37,7 +37,7 @@ pub(crate) fn create_audioinput_stream() -> (Receiver<f32>, Stream) {
         .unwrap()
         .find(|c| c.channels() == 1 && c.sample_format() == SampleFormat::F32)
         .unwrap()
-        .try_with_sample_rate(cpal::SampleRate(SAMPLE_RATE))
+        .try_with_sample_rate(SAMPLE_RATE)
         .unwrap();
     println!("{config:?}");
     let config: StreamConfig = config.into();
