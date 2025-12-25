@@ -4,14 +4,20 @@ use bevy::{
     window::PrimaryWindow,
 };
 
-use crate::audio_input_plugin::AudioInputPlugin;
+use crate::{
+    audio_input_plugin::AudioInputPlugin,
+    vcam_plugin::VcamPlugin,
+};
 
 mod audio_input_plugin;
+
+mod vcam_plugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(AudioInputPlugin)
+        .add_plugins(VcamPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, grid)
         .add_systems(Update, wave_gizmo)
