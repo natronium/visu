@@ -1,12 +1,14 @@
 use bevy::{
+    camera::CameraProjection as _,
     color::palettes::css::{GREEN, GREY},
     prelude::*,
     window::PrimaryWindow,
 };
+use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
 use crate::{
     audio_input_plugin::AudioInputPlugin,
-    vcam_plugin::VcamPlugin,
+    vcam_plugin::{CamBuffer, VcamPlugin},
 };
 
 mod audio_input_plugin;
@@ -16,6 +18,8 @@ mod vcam_plugin;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(EguiPlugin::default())
+        .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(AudioInputPlugin)
         .add_plugins(VcamPlugin)
         .add_systems(Startup, setup)
@@ -24,8 +28,40 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera2d);
+fn setup(mut commands: Commands, vcam_image: Res<CamBuffer>) {
+    commands.spawn((
+        Name::new("Window Camera"),
+        Transform::from_xyz(0., 0., 1300.),
+        Camera3d::default(),
+    ));
+
+    commands
+        .spawn((
+            Name::new("VCam Texture Camera"),
+            Transform::from_xyz(0., 0., 500.),
+            Camera3d::default(),
+            Camera {
+                order: -1,
+                target: vcam_image.0.clone().into(),
+                ..default()
+            },
+            Projection::Orthographic(OrthographicProjection::default_2d()),
+            OrthographicProjection::default_2d()
+                .compute_frustum(&GlobalTransform::from(Transform::default())),
+        ));
+
+    commands.spawn((
+        Name::new("Camera Output Preview"),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(50),
+            left: px(50),
+            border: UiRect::all(px(5)),
+            ..default()
+        },
+        BorderColor::all(Color::WHITE),
+        ImageNode::new(vcam_image.0.clone()),
+    ));
 }
 
 fn wave_gizmo(
